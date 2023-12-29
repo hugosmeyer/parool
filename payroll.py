@@ -49,6 +49,15 @@ def makefontbold(cell):
     thisfont.bold = True
     cell.font = thisfont
 
+def maketextwrap(cell):
+    cell.alignment = Alignment(horizontal='general',vertical='center',text_rotation=0,wrap_text=True,shrink_to_fit=False,indent=0)
+
+def makebgndgrey(cell):
+    cell.fill = PatternFill(fill_type="lightGray",start_color='FFCCCCCC',end_color='FFCCCCCC')
+
+def maketextcntr(cell):
+    cell.alignment = Alignment(horizontal='general',vertical='center',text_rotation=0,wrap_text=True,shrink_to_fit=False,indent=0)
+
 # Main, start of the program
 if __name__ == "__main__":
 
@@ -85,11 +94,17 @@ exclrowsused = exclmainshet.max_row
 exclcolsused = exclmainshet.max_column
 
 colmcntr = 1
+
+# Make a list of column header from the input sheet
 maincolmhdrs = {}
 while colmcntr <= exclcolsused:
     maincolmhdrs[exclmainshet.cell(row = 1, column = colmcntr).value] = colmcntr
     colmcntr += 1
 
+# Assume there will be something in row1, col 1 and used that as a font reference
+cellfontrrefr = exclmainshet.cell(row = 1, column = 1)
+
+# Process each section in the INI file
 for defn in defndict:
     thisdefn = defndict[defn]
     
@@ -102,8 +117,7 @@ for defn in defndict:
         if testname == "SKIP":
             testvalu.strip()
             if testvalu.isdigit():
-                rowsstrt = int(testvalu)
-                rowsstrt += 1   
+                rowsstrt = int(testvalu) + 1
             testskip = True
     
         if not testskip:
@@ -120,41 +134,51 @@ for defn in defndict:
         destshet.title = defnname
     else:
         destshet = exclmainbook.create_sheet(title = defnname)
+        titlcell = destshet.cell(row = rowsstrt, column = 1)
+        titlcell.font = Font(name='Arial',size=14,bold=True,italic=False,vertAlign=None,underline='none',strike=False,color='FF000000')
+        makefontbold(titlcell)
+        titlcell.value = busnunitname + " " + defnname + " - " + cldrmnth + " " + cldryear
+        rowsstrt += 2
     
-    chdrfont = Font(name='Arial',size=10,bold=True,italic=False,vertAlign=None,underline='none',strike=False,color='FF000000')
-    chdrfill = PatternFill(fill_type="lightGray",start_color='FF555555',end_color='FF555555')
     chdralgn = alignment=Alignment(horizontal='general',vertical='center',text_rotation=0,wrap_text=True,shrink_to_fit=False,indent=0)
-
     destcolm = 1
     nzrocols = []
     totlcols = []
     totlflag = False
 
     colmcntr = 1
+
     for defncolm in thisdefn:
+        
         maincolm,thiscolm = defncolm
+        
+        # _NZ_ will have rows with an empty or zero value in this column to to be excluded
         if "_NZ_" in thiscolm:
             nzrocols.append(colmcntr)
-            thiscolm.replace("_NZ_", "")
+            thiscolm = thiscolm.replace("_NZ_", "")
         
+        # _SUM_ will have the values in this column added up and shown below
         if "_SUM_" in thiscolm:
             totlcols.append(colmcntr)
             totlflag = True
-            thiscolm.replace("_SUM_", "")
+            thiscolm = thiscolm.replace("_SUM_", "")
             
         colmcntr += 1
-
+        
         # insert the header
         destcell = destshet.cell(row = rowsstrt, column = destcolm)
+        # this will alledgedly autossize the row in Excel
         destshet.row_dimensions[1].height = None
+
         if maincolm in maincolmhdrs:
             fromcell=exclmainshet.cell(row = 1, column = maincolmhdrs[maincolm])
             destcell.value = thiscolm
         else: 
             destcell.value = maincolm
-        destcell.font      = chdrfont
-        destcell.fill      = chdrfill
-        destcell.alignment = chdralgn
+        copycellfrmt(cellfontrrefr,destcell)
+        makebgndgrey(destcell)
+        maketextwrap(destcell)
+        maketextcntr(destcell)
 
         # load the values below the header
         rowscntr = 2
@@ -194,7 +218,6 @@ for defn in defndict:
 
     # Now remove them from the sheet
     dlterows.sort(reverse = True)
-    print (dlterows)
     if dlterows:
         for dlterown in dlterows:
             destshet.delete_rows(dlterown)
@@ -202,31 +225,37 @@ for defn in defndict:
     # Add up the totals if there are any
     if totlflag:
         rowsused = destshet.max_row
-        for colmnmbr in totlcols:
-            rowscntr = rowsstrt + 1
-            totlvalu = 0
-            while rowscntr <= rowsused:
-                totlcell = destshet.cell(row = rowscntr, column = colmnmbr)
-                if type(totlcell.value) in [int, float]:
-                    totlvalu += totlcell.value
-                rowscntr += 1
-            rowscntr += 1
+        colsused = destshet.max_column
+        print("colsused = ",colsused)
+        colmnmbr = 1
+        while colmnmbr <= colsused:
             totlcell = destshet.cell(row = rowsused + 1, column = colmnmbr)
             abovcell = destshet.cell(row = rowsused    , column = colmnmbr)
             copycellfrmt(abovcell, totlcell)
             makefontbold(totlcell)
-            totlcell.value = totlvalu
-        
-        totlcell = destshet.cell(row = rowsused + 1, column = 1)
-        copycellfrmt(abovcell, totlcell)
-        makefontbold(totlcell)
-        totlcell.value = "Total:"
-        
+            makebgndgrey(totlcell)
+            
+            if colmnmbr in totlcols:
+                rowscntr = rowsstrt + 1
+                totlvalu = 0
+                while rowscntr <= rowsused:
+                    valucell = destshet.cell(row = rowscntr, column = colmnmbr)
+                    if type(valucell.value) in [int, float]:
+                        totlvalu += valucell.value
+                    rowscntr += 1
+
+                totlcell.value = totlvalu
+
+            if colmnmbr == 1:
+                totlcell.value = "Total:"
+
+            colmnmbr += 1
+
     # Make all the columns auto sizing
     for cols in destshet.columns:
         col = get_column_letter(cols[0].column)
         destshet.column_dimensions[col].auto_size = True
-
+        
     # Save it if it is a file type
     if defntype == "FILE":
         destbook.save(filename=defnname+".xlsx")
