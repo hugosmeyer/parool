@@ -1,25 +1,29 @@
-# Makefile for generating and viewing Excel data in terminal
+PYTHON_VERSION = 3.11.4
+PYTHON_EXE = python-$(PYTHON_VERSION).exe
+PYTHON_URL = https://www.python.org/ftp/python/$(PYTHON_VERSION)/$(PYTHON_EXE)
+PYTHON_PATH = C:\\Python311\\python.exe
+PYINSTALLER = C:\\Python311\\Scripts\\pyinstaller.exe
+SCRIPT = Payroll.py
+ASSETS = background.png
 
-EXCEL_FILE=devtest.xlsx
-EXCEL_OUT="devtest DullUSA Jun 2025.xlsx"
-CSV_FILE=devtest.csv
-MONTH=Jun
-YEAR=2025
-DEFINITION=devtest.ini
+all: build
 
-.PHONY: all run convert view clean
+python:
+	wget -nc $(PYTHON_URL)
+	WINEARCH=win32 wine $(PYTHON_EXE)
 
-all: run convert view
-
-run:
-	./Cmdline.py --defn=$(DEFINITION) --excl=$(EXCEL_FILE) --month=$(MONTH) --year=$(YEAR)
-
-convert:
-	xlsx2csv $(EXCEL_OUT) > $(CSV_FILE)
-
-view:
-	column -s, -t $(CSV_FILE) | less -#2 -N -S
+deps:
+	wine $(PYTHON_PATH) -m ensurepip
+	wine $(PYTHON_PATH) -m pip install --upgrade pip
+	wine $(PYTHON_PATH) -m pip install pillow pyinstaller openpyxl
 
 clean:
-	rm -f $(CSV_FILE)
+	rm -rf build dist __pycache__ *.spec
+
+build: clean
+	wine $(PYINSTALLER) --onefile --add-data "$(ASSETS);." $(SCRIPT)
+
+run:
+	wine dist/$(basename $(SCRIPT)).exe
+
 

@@ -56,7 +56,7 @@ class Payroll:
         # Recipe
         #
         self.rcpeflnmvalu = tk.StringVar()
-        rcpeflnmlabl = tk.Label(root, text="Recipe File:")
+        rcpeflnmlabl = tk.Label(root, text="Recipe File:", anchor="w")
         canvas.create_window(self.lablxpos, self.ypos, window=rcpeflnmlabl, width=self.lablwdth, anchor="nw" )
 
         self.rcpeflnmentr = tk.Entry(root, textvariable=self.rcpeflnmvalu)
@@ -140,10 +140,10 @@ class Payroll:
             if flnmslct:
                 self.rcpeflnmvalu.set(flnmslct)
             
-                print("rcpeflnmvalu = ", self.rcpeflnmvalu)
+                #print("rcpeflnmvalu = ", self.rcpeflnmvalu)
                 # Parse INI file
 
-                config = configparser.ConfigParser()
+                config = configparser.ConfigParser(delimiters=('='))
                 config.read(flnmslct)
 
                 self.complist = []

@@ -15,6 +15,7 @@ from os import path
 import sys
 from collections import defaultdict
 from openpyxl.styles import Alignment
+import re
 
 debugActive = True
 rowsstrt = 5
@@ -48,6 +49,11 @@ def defnfileprse(file_path):
                 if not key == "":
                     if key is None:
                         key = ""
+                    key = key.strip() 
+                    value = value.strip()
+                    #print ("key:b  ",key,len(key)) 
+                    #key = re.sub(r'[^a-zA-Z0-9\s.,!?-_)( ]', '', key)
+                    #print ("key:a  ",key,len(key)) 
                     ini_data[currsect].append([key, value])
     return ini_data
 
@@ -84,7 +90,8 @@ def maketextcntr(cell):
     cell.alignment = Alignment(horizontal='general',vertical='center',text_rotation=0,wrap_text=True,shrink_to_fit=False,indent=0)
 
 def fillcellcolr(cell):
-    cell.fill   = PatternFill(fill_type="lightGray",start_color='FFCCCCCC',end_color='FFCCCCCC')
+    #cell.fill   = PatternFill(fill_type="lightGray",start_color='FFCCCCCC',end_color='FFCCCCCC')
+    cell.fill = PatternFill(fill_type="lightGray",start_color='DAE3F3',end_color='DAE3F3')
 
 def frmttotltitl(cell):
     fontsizelrge(cell)
@@ -333,7 +340,11 @@ def processFiles(defnfilename,exclfilename,cldrmnth,cldryear,busnunitname,debugA
         colmcntr = 1
         maincolmhdrs = {}
         while colmcntr <= exclcolsused:
-            maincolmhdrs[exclmainshet.cell(row = 1, column = colmcntr).value] = colmcntr
+            maincolmname=exclmainshet.cell(row = 1, column = colmcntr).value
+            #print("mch:b = ",maincolmname," ", len(maincolmname) )
+            #maincolmname = re.sub(r'[^a-zA-Z0-9\s.,!?-_)( ]', '', maincolmname)
+            #print("mch:b = ",maincolmname," ", len(maincolmname) )
+            maincolmhdrs[maincolmname] = colmcntr
             colmcntr += 1
 
         # Process each section in the INI file
@@ -353,10 +364,16 @@ def processFiles(defnfilename,exclfilename,cldrmnth,cldryear,busnunitname,debugA
             nzrocols = []
             totlcols = []
             colmcntr = 1
-            for maincolm, thiscolm in givndefn:
 
+            shetslct = True
+            for maincolm, thiscolm in givndefn:
+                maincolm = maincolm.strip()
+                thiscolm = thiscolm.strip()
                 # Ignore columns that cannot be found in the input sheet.
                 if maincolm not in maincolmhdrs:
+                    if "_NZ_" in thiscolm:
+                        shetslct = False
+                        break
                     continue
 
                 # _NZ_ will have rows with an empty or zero value in this column to to be excluded
@@ -371,6 +388,9 @@ def processFiles(defnfilename,exclfilename,cldrmnth,cldryear,busnunitname,debugA
                 colmcntr += 1
 
                 thisdefn.append([maincolm, thiscolm])
+
+            if not shetslct:
+                continue
 
             # First create a sheet for a new file in which to work
             destbook = Workbook()
