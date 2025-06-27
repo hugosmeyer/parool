@@ -149,7 +149,8 @@ class Payroll:
                 self.complist = []
                 if "COMPANIES" in config:
                     for compkeyn in config["COMPANIES"].keys():
-                        self.complist.append (compkeyn + " - " + config["COMPANIES"].get(compkeyn) )
+                        #self.complist.append (compkeyn + " - " + config["COMPANIES"].get(compkeyn) )
+                        self.complist.append (config["COMPANIES"].get(compkeyn) )
                     self.compdropdown.config(values = self.complist)
                     
     def prolflnmslct(self):

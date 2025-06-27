@@ -3,7 +3,6 @@ import sys
 import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog
-from PIL import Image, ImageTk
 import datetime
 from copy import copy, deepcopy
 import openpyxl
@@ -51,9 +50,6 @@ def defnfileprse(file_path):
                         key = ""
                     key = key.strip() 
                     value = value.strip()
-                    #print ("key:b  ",key,len(key)) 
-                    #key = re.sub(r'[^a-zA-Z0-9\s.,!?-_)( ]', '', key)
-                    #print ("key:a  ",key,len(key)) 
                     ini_data[currsect].append([key, value])
     return ini_data
 
@@ -63,6 +59,7 @@ defnbrdrthin = Side(border_style="thin",  color="000000")
 defnbrdrthck = Side(border_style="thick", color="000000")
 cellbrdrthin = Border(bottom=defnbrdrthin)
 cellbrdrthck = Border(bottom=defnbrdrthck)
+nmbrfrmt="### ### ### ##0.00"
 
 def copycellvalu(fromcell, destcell):
     destcell.value = fromcell.value
@@ -71,7 +68,8 @@ def copycellfrmt(fromcell, destcell):
     destcell.font          = copy(fromcell.font)
     destcell.border        = copy(fromcell.border)
     destcell.fill          = copy(fromcell.fill)
-    destcell.number_format = copy(fromcell.number_format)
+    #destcell.number_format = copy(fromcell.number_format)
+    destcell.number_format = nmbrfrmt
     destcell.protection    = copy(fromcell.protection)
     destcell.alignment     = copy(fromcell.alignment)
 
@@ -81,7 +79,7 @@ def makefontbold(cell):
     cell.font = thisfont
 
 def fontsizenrml(cell):
-    cell.font       = Font(name='Arial',size=11,bold=None,italic=False,vertAlign=None,underline=None,strike=False,color='FF000000')
+    cell.font       = Font(name='Arial',size=10,bold=None,italic=False,vertAlign=None,underline=None,strike=False,color='FF000000')
 
 def fontsizelrge(cell):
     cell.font       = Font(name='Arial',size=14,bold=None,italic=False,vertAlign=None,underline=None,strike=False,color='FF000000')
@@ -90,30 +88,27 @@ def maketextcntr(cell):
     cell.alignment = Alignment(horizontal='general',vertical='center',text_rotation=0,wrap_text=True,shrink_to_fit=False,indent=0)
 
 def fillcellcolr(cell):
-    #cell.fill   = PatternFill(fill_type="lightGray",start_color='FFCCCCCC',end_color='FFCCCCCC')
     cell.fill = PatternFill(fill_type="lightGray",start_color='DAE3F3',end_color='DAE3F3')
 
 def frmttotltitl(cell):
-    fontsizelrge(cell)
-    cell.alignment = Alignment(horizontal='general',vertical='bottom',text_rotation=0,wrap_text=True,shrink_to_fit=False,indent=0)
+    fontsizenrml(cell)
+    makefontbold(cell)
     fillcellcolr(cell)
+    cell.alignment = Alignment(horizontal='general',vertical='bottom',text_rotation=0,wrap_text=True,shrink_to_fit=False,indent=0)
 
 def frmttotlvalu(cell):
-    fontsizelrge(cell)
+    #fontsizelrge(cell)
+    fontsizenrml(cell)
+    makefontbold(cell)
     cell.border        = cellbrdrthck
-    cell.number_format = "0.00"
+    cell.number_format = nmbrfrmt
     cellabov           = cell.parent.cell(row=cell.row - 1, column=cell.column)
     cellabov.border    = cellbrdrthin 
 
 
-def populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnunitname,cldrmnth,cldryear,totlcols,nzrocols):
+def populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnunitname,cldrmnth,cldryear,totlcols,nzrocols,aftrtotldefn):
     # Gather some details of the Main Excel
     exclrowsused = exclmainshet.max_row
-    exclcolsused = exclmainshet.max_column
-
-    # Determine the font in A1 of the input sheet
-    cellfontrrefr = exclmainshet.cell(row = 1, column = 1)
-        
     
     # Add the title to A1
     titlcell = destshet.cell(row = 1, column = 1)
@@ -123,14 +118,13 @@ def populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnun
     titlcell.alignment = Alignment(horizontal='general',vertical='center',text_rotation=0,wrap_text=False,shrink_to_fit=False,indent=0)
 
     destshet.row_dimensions[1].height = None
-
-    chdralgn = alignment=Alignment(horizontal='general',vertical='bottom',text_rotation=0,wrap_text=True,shrink_to_fit=False,indent=0)
-
+    
     destcolm = 1
     dlterows = []
     
     # Create the Column headers
     for maincolm,thiscolm in thisdefn:
+
         # Insert the header
         destcell = destshet.cell(row = rowsstrt, column = destcolm)
         destcell.value = thiscolm
@@ -150,8 +144,9 @@ def populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnun
             fromcell=exclmainshet.cell(row = rowscntr, column = maincolmhdrs[maincolm])
             destcell.value = fromcell.value 
             
-            if fromcell.has_style:
-                copycellfrmt(fromcell, destcell)
+            #if fromcell.has_style:
+            #    copycellfrmt(fromcell, destcell)
+            fontsizenrml(destcell)
 
             if destcolm in nzrocols:
                 if isinstance(destcell.value, (int, float)) and not isinstance(destcell.value, bool):
@@ -170,7 +165,7 @@ def populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnun
             if destcolm in totlcols:
                 if destcell.value is None:
                     destcell.value = 0.00
-                destcell.number_format = "0.00"
+                destcell.number_format = nmbrfrmt
 
             rowscntr += 1
         destcolm += 1
@@ -194,7 +189,6 @@ def populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnun
         colmnmbr = 1
 
         totllinecels = defaultdict(list)
-        totlglobcels = []
 
         while colmnmbr <= colsused:
 
@@ -210,7 +204,8 @@ def populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnun
                 frmttotlvalu(totlcellabov)
 
                 ctrlcellabov = destshet.cell(row = 3           , column = colmnmbr)
-                fontsizelrge(ctrlcellabov)
+                #fontsizelrge(ctrlcellabov)
+                fontsizenrml(ctrlcellabov)
 
                 rowscntr = rowsstrt + 1
                 totlcolmcels = defaultdict(list)
@@ -219,7 +214,7 @@ def populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnun
                     if type(valucell.value) in [int, float]:
                         totlcolmcels[colmnmbr].append(valucell.coordinate)
                         totllinecels[rowscntr].append(valucell.coordinate)
-                        totlglobcels.append(valucell.coordinate)
+                    
                     rowscntr += 1
 
                 # load the cell value into bottom and above cells
@@ -232,9 +227,7 @@ def populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnun
                 frmttotltitl(totlcellblow)
 
             colmnmbr += 1
-
-
-
+   
     rowscntr = rowsstrt + 1 
     rowslast = destshet.max_row - 1
     colmlast = destshet.max_column 
@@ -249,8 +242,10 @@ def populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnun
                 sidetotlcels.append(thiscell.coordinate)
 
             thiscell = destshet.cell(row = rowscntr, column = colmlast)
+            fontsizenrml(thiscell)
+            makefontbold(thiscell)
             thiscell.value = "=SUM(" + ",".join(sidetotlcels) + ")"
-            thiscell.number_format = "0.00"
+            thiscell.number_format = nmbrfrmt
             sidetotllist.append(thiscell.coordinate)
             rowscntr += 1
         
@@ -262,7 +257,6 @@ def populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnun
         # Total on the right Above
         sidetotlabov = destshet.cell(row = 2, column = sidetotlcolm)
         sidetotlabov.value = "=sum(" + sidetotllist[0] + ":" + sidetotllist[-1] + ")"
-        #sidetotlabov.value = "=SUM(" + ",".join(totlglobcels) + ")"
         frmttotlvalu(sidetotlabov)
 
         # Bottom total on the right
@@ -273,17 +267,40 @@ def populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnun
         # Control at top right
         sidectrlcell = destshet.cell( row = 3, column=sidetotlcolm)
         sidectrlcell.value = "=IF(" + sidetotlblow.coordinate+ "=" + sidetotlabov.coordinate + ",TRUE,FALSE)"
-        fontsizelrge(sidectrlcell)
+        fontsizenrml(sidectrlcell)
 
     if len(totlcols) > 0:
         # Insert the pesky "Total" before the first total column
         thiscell = destshet.cell( row = 2, column = totlcols[0] - 1 )
         thiscell.value = "Total"
-        fontsizelrge(thiscell)
+        #fontsizelrge(thiscell)
+        fontsizenrml(thiscell)
         makefontbold(thiscell)
         frsttotlcolm=totlcols[0]
     else:
         frsttotlcolm = 6
+
+    # SARS Stuff
+    if len(aftrtotldefn) > 0:
+        destshet.insert_rows(5)
+        for aftrtotl in aftrtotldefn:
+            destshet.insert_rows(5)
+            aftrtitlcell = destshet.cell( row = 5, column=sidetotlcolm -1 )
+            aftrtitlcell.value = aftrtotl.strip("_")
+            fontsizenrml(aftrtitlcell)
+            makefontbold(aftrtitlcell)
+            
+            aftrvalucell = destshet.cell( row = 5, column=sidetotlcolm  )
+            aftrcelladdr = []
+            for aftrcolmnmbr in aftrtotldefn[aftrtotl]:
+                aftrsrcecell = destshet.cell(row = 2, column = aftrcolmnmbr)
+                aftrcelladdr.append(aftrsrcecell.coordinate)
+            aftrvalucell.value = "=SUM(" + ",".join(aftrcelladdr) + ")"
+            fontsizenrml(aftrvalucell)
+            makefontbold(aftrvalucell)
+            aftrvalucell.number_format = nmbrfrmt
+            
+            
 
     # Merge the cells for the title on the left.
     destshet.merge_cells(start_row=1, start_column=1, end_row=1, end_column=frsttotlcolm - 1)
@@ -296,7 +313,7 @@ def populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnun
     
 def processFiles(defnfilename,exclfilename,cldrmnth,cldryear,busnunitname,debugActive):
     datafilefldr = path.dirname(exclfilename)
-    newxfilename = path.join(datafilefldr, str(path.basename(exclfilename.replace(".xlsx", " Schedules.xlsx"))))
+    newxfilename = path.join(datafilefldr, str(path.basename(exclfilename.replace(".xlsx", " Tabs.xlsx"))))
 
     debug("Running in folder      :", os.getcwd())
     debug("Selected Month         :", cldrmnth)
@@ -341,9 +358,6 @@ def processFiles(defnfilename,exclfilename,cldrmnth,cldryear,busnunitname,debugA
         maincolmhdrs = {}
         while colmcntr <= exclcolsused:
             maincolmname=exclmainshet.cell(row = 1, column = colmcntr).value
-            #print("mch:b = ",maincolmname," ", len(maincolmname) )
-            #maincolmname = re.sub(r'[^a-zA-Z0-9\s.,!?-_)( ]', '', maincolmname)
-            #print("mch:b = ",maincolmname," ", len(maincolmname) )
             maincolmhdrs[maincolmname] = colmcntr
             colmcntr += 1
 
@@ -354,21 +368,33 @@ def processFiles(defnfilename,exclfilename,cldrmnth,cldryear,busnunitname,debugA
             defnname = defn
             if defnname == "COMPANIES":
                 continue
-
-            # Space needed for the Totals at the top.
-            rowsstrt = 5
-   
+            
             # Create a list of input and output column mappings where the
             # input column exists.
             thisdefn = list()
             nzrocols = []
             totlcols = []
+            destcols = defaultdict()
+
             colmcntr = 1
+            aftrtotldefn = defaultdict(list)
 
             shetslct = True
             for maincolm, thiscolm in givndefn:
                 maincolm = maincolm.strip()
                 thiscolm = thiscolm.strip()
+
+                # Summed totals to be added after 
+                
+                if maincolm.startswith("_") and maincolm.endswith("_"):
+                    for aftrcolm in thiscolm.split("+"):
+                        aftrcolm=aftrcolm.strip()
+                        if aftrcolm in maincolmhdrs:
+                            if destcols[aftrcolm] in totlcols:
+                                aftrtotldefn[maincolm].append(destcols[aftrcolm])
+                    
+
+
                 # Ignore columns that cannot be found in the input sheet.
                 if maincolm not in maincolmhdrs:
                     if "_NZ_" in thiscolm:
@@ -385,23 +411,28 @@ def processFiles(defnfilename,exclfilename,cldrmnth,cldryear,busnunitname,debugA
                 if "_SUM_" in thiscolm:
                     totlcols.append(colmcntr)
                     thiscolm = thiscolm.replace("_SUM_", "").strip()
-                colmcntr += 1
-
+                destcols[maincolm] = colmcntr
                 thisdefn.append([maincolm, thiscolm])
+                colmcntr += 1
 
             if not shetslct:
                 continue
+
+            
+
+
+
 
             # First create a sheet for a new file in which to work
             destbook = Workbook()
             destshet = destbook.active
             destshet.title = defnname          
-            populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnunitname,cldrmnth,cldryear,totlcols,nzrocols)
+            populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnunitname,cldrmnth,cldryear,totlcols,nzrocols,aftrtotldefn)
             destbook.save(filename=os.path.join(datafilefldr, busnunitname + " " + defnname + " " + str(cldrmnth) + " " + str(cldryear) + ".xlsx"))
 
             # Next create a tab in the copy of the main Excel file
             destshet = exclmainbook.create_sheet(title = defnname)
-            populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnunitname,cldrmnth,cldryear,totlcols,nzrocols)
+            populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnunitname,cldrmnth,cldryear,totlcols,nzrocols,aftrtotldefn)
 
         # Save the copy with schedules only at the end.
         exclmainbook.save(newxfilename)
