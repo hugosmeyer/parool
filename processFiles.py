@@ -17,7 +17,6 @@ from openpyxl.styles import Alignment
 import re
 
 debugActive = True
-rowsstrt = 5
 
 def debug(*args):
     if debugActive:
@@ -106,7 +105,8 @@ def frmttotlvalu(cell):
     cellabov.border    = cellbrdrthin 
 
 
-def populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnunitname,cldrmnth,cldryear,totlcols,nzrocols,aftrtotldefn):
+def populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnunitname,cldrmnth,cldryear,totlcols,nzrocols,anzrcols,aftrtotldefn):
+    rowsstrt = 5 + len(aftrtotldefn) + 2
     # Gather some details of the Main Excel
     exclrowsused = exclmainshet.max_row
     
@@ -121,7 +121,7 @@ def populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnun
     
     destcolm = 1
     dlterows = []
-    
+    anzrsums = defaultdict(float)
     # Create the Column headers
     for maincolm,thiscolm in thisdefn:
 
@@ -138,28 +138,36 @@ def populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnun
 
         # Copy the cells below the column headers
         rowscntr = 2
+        anzrrows = []
         while rowscntr <= exclrowsused:
             destcell = destshet.cell(row = rowscntr + rowsstrt - 1, column = destcolm)
             destshet.row_dimensions[rowscntr].height = None
             fromcell=exclmainshet.cell(row = rowscntr, column = maincolmhdrs[maincolm])
             destcell.value = fromcell.value 
-            
+           
             #if fromcell.has_style:
             #    copycellfrmt(fromcell, destcell)
             fontsizenrml(destcell)
 
-            if destcolm in nzrocols:
+            anzrsums[destcell.row] = anzrsums[destcell.row] + 0
+            if destcolm in nzrocols or destcolm in anzrcols:
                 if isinstance(destcell.value, (int, float)) and not isinstance(destcell.value, bool):
-                    if abs(destcell.value) < 1e-12:
-                        if destcell.row not in dlterows:
-                            dlterows.append(destcell.row)
+                    if destcolm in anzrcols:
+                        anzrsums[destcell.row] = anzrsums[destcell.row] + abs(destcell.value)
+                    if destcolm in nzrocols:
+                        if abs(destcell.value) < 1e-12:
+                            if destcell.row not in dlterows:
+                                dlterows.append(destcell.row)
                 elif isinstance(destcell.value, str):
-                    if destcell.value.strip()  == "":
+
+                    if destcolm in nzrocols:
+                        if destcell.value.strip()  == "":
+                            if destcell.row not in dlterows:
+                                dlterows.append(destcell.row)
+                elif destcell.value is None:
+                    if destcolm in nzrocols:
                         if destcell.row not in dlterows:
                             dlterows.append(destcell.row)
-                elif destcell.value is None:
-                    if destcell.row not in dlterows:
-                        dlterows.append(destcell.row)
 
             # Clean up the values in columns being added up            
             if destcolm in totlcols:
@@ -168,12 +176,21 @@ def populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnun
                 destcell.number_format = nmbrfrmt
 
             rowscntr += 1
+
         destcolm += 1
 
     if len(totlcols) > 1:
-        destcell = destshet.cell(row = 5, column = destcolm)
+        destcell = destshet.cell(row = rowsstrt, column = destcolm)
         destcell.value = "Total"
         frmttotltitl(destcell)
+
+    # Remove rows that do not have anything in one of the _ANZ_ columns
+    # by adding the rows to the rows that should be deleted
+    if anzrcols:
+        for anzrrown in anzrsums.keys():
+            if anzrsums[anzrrown] == 0:
+                if anzrrown not in dlterows:
+                    dlterows.append(anzrrown)
 
     # Remove the zero value ones _NZ_ columns from the sheet
     dlterows.sort(reverse = True)
@@ -209,6 +226,7 @@ def populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnun
 
                 rowscntr = rowsstrt + 1
                 totlcolmcels = defaultdict(list)
+                # ??????????????????????????????????????
                 while rowscntr <= rowsused:
                     valucell = destshet.cell(row = rowscntr, column = colmnmbr)
                     if type(valucell.value) in [int, float]:
@@ -282,26 +300,46 @@ def populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnun
 
     # SARS Stuff
     if len(aftrtotldefn) > 0:
-        destshet.insert_rows(5)
+        aftrtotlrown = 5
+        aftrtotlcels = []
         for aftrtotl in aftrtotldefn:
-            destshet.insert_rows(5)
-            aftrtitlcell = destshet.cell( row = 5, column=sidetotlcolm -1 )
+            aftrtitlcell = destshet.cell( row = aftrtotlrown, column = sidetotlcolm -1 )
             aftrtitlcell.value = aftrtotl.strip("_")
             fontsizenrml(aftrtitlcell)
             makefontbold(aftrtitlcell)
+            fillcellcolr(aftrtitlcell)
             
-            aftrvalucell = destshet.cell( row = 5, column=sidetotlcolm  )
-            aftrcelladdr = []
-            for aftrcolmnmbr in aftrtotldefn[aftrtotl]:
-                aftrsrcecell = destshet.cell(row = 2, column = aftrcolmnmbr)
-                aftrcelladdr.append(aftrsrcecell.coordinate)
-            aftrvalucell.value = "=SUM(" + ",".join(aftrcelladdr) + ")"
+            aftrvalucell = destshet.cell( row = aftrtotlrown, column = sidetotlcolm  )
+            # For the sum of sums
+            aftrtotlcels.append(aftrvalucell.coordinate)
+
+            # Make a list of coordinates
+            aftrsnglcels = []
+            for aftrtotlcolm in aftrtotldefn[aftrtotl]:
+                aftrsnglcell = destshet.cell( row = 2, column = aftrtotlcolm)
+                aftrsnglcels.append(aftrsnglcell.coordinate)
+            # Add them up
+            aftrvalucell.value = "=SUM(" + ",".join(aftrsnglcels) + ")"
             fontsizenrml(aftrvalucell)
             makefontbold(aftrvalucell)
             aftrvalucell.number_format = nmbrfrmt
-            
+
+            aftrtotlrown = aftrtotlrown + 1
             
 
+        aftrtotltitl = destshet.cell( row = aftrtotlrown, column=sidetotlcolm -1 )
+        fontsizenrml(aftrtotltitl)
+        makefontbold(aftrtotltitl)
+        fillcellcolr(aftrtotltitl)
+        aftrtotltitl.value = "Total"
+        aftrtotlvalu = destshet.cell( row = aftrtotlrown, column=sidetotlcolm )
+        fontsizenrml(aftrtotlvalu)
+        makefontbold(aftrtotlvalu)
+        aftrtotlvalu.value = "=SUM(" + ",".join(aftrtotlcels) + ")"
+        aftrtotlvalu.number_format = nmbrfrmt
+        frmttotlvalu(aftrtotlvalu)
+
+            
     # Merge the cells for the title on the left.
     destshet.merge_cells(start_row=1, start_column=1, end_row=1, end_column=frsttotlcolm - 1)
 
@@ -352,7 +390,7 @@ def processFiles(defnfilename,exclfilename,cldrmnth,cldryear,busnunitname,debugA
         exclmainbook = load_workbook(exclfilename,data_only=True)
         exclmainshet = exclmainbook[exclmainbook.sheetnames[0]]
         exclcolsused = exclmainshet.max_column
-        
+      
         # Make a list of column headers from the input sheet
         colmcntr = 1
         maincolmhdrs = {}
@@ -371,8 +409,13 @@ def processFiles(defnfilename,exclfilename,cldrmnth,cldryear,busnunitname,debugA
             
             # Create a list of input and output column mappings where the
             # input column exists.
+            # nzro - no zeroes allowed
+            # anzr - any column msrked with this and has a value will result in
+            # inclusion
+            # totl These columns will be added up
             thisdefn = list()
-            nzrocols = []
+            nzrocols = [] 
+            anzrcols = []
             totlcols = []
             destcols = defaultdict()
 
@@ -402,6 +445,13 @@ def processFiles(defnfilename,exclfilename,cldrmnth,cldryear,busnunitname,debugA
                         break
                     continue
 
+                # _ANZ_ will have rows with an empty or zero value in this column to to be excluded
+                # _ANZ_ is not compatible with _NZ_ and takes priority
+                if "_ANZ_" in thiscolm:
+                    anzrcols.append(colmcntr)
+                    thiscolm = thiscolm.replace("_NZ_", "").strip()
+                    thiscolm = thiscolm.replace("_ANZ_", "").strip()
+                    
                 # _NZ_ will have rows with an empty or zero value in this column to to be excluded
                 if "_NZ_" in thiscolm:
                     nzrocols.append(colmcntr)
@@ -424,15 +474,17 @@ def processFiles(defnfilename,exclfilename,cldrmnth,cldryear,busnunitname,debugA
 
 
             # First create a sheet for a new file in which to work
-            destbook = Workbook()
-            destshet = destbook.active
-            destshet.title = defnname          
-            populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnunitname,cldrmnth,cldryear,totlcols,nzrocols,aftrtotldefn)
-            destbook.save(filename=os.path.join(datafilefldr, busnunitname + " " + defnname + " " + str(cldrmnth) + " " + str(cldryear) + ".xlsx"))
+            #destbook = Workbook()
+            #destshet = destbook.active
+            #destshet.show_gridlines = True
+            #destshet.title = defnname          
+            #populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnunitname,cldrmnth,cldryear,totlcols,nzrocols,anzrcols,aftrtotldefn)
+            #destbook.save(filename=os.path.join(datafilefldr, busnunitname + " " + defnname + " " + str(cldrmnth) + " " + str(cldryear) + ".xlsx"))
 
             # Next create a tab in the copy of the main Excel file
             destshet = exclmainbook.create_sheet(title = defnname)
-            populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnunitname,cldrmnth,cldryear,totlcols,nzrocols,aftrtotldefn)
+            destshet.sheet_view.showGridLines = True
+            populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnunitname,cldrmnth,cldryear,totlcols,nzrocols,anzrcols,aftrtotldefn)
 
         # Save the copy with schedules only at the end.
         exclmainbook.save(newxfilename)
