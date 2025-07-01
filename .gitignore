@@ -1,3 +1,20 @@
 *.xlsx
 *.xlsx#
 
+	.~lock.*
+Build_Wine_Env_Howto
+MPACT.ini
+Makefile_run
+RECIPE_PREP.ods
+__pycache__/
+background.png
+build/
+data/
+dist/
+dlds/
+docs/
+etest.ini
+evaluation_20250624_1/
+notyet/
+testdata/
+
