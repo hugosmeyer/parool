@@ -138,6 +138,7 @@ def populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnun
 
         # Copy the cells below the column headers
         rowscntr = 2
+        headcntr = 0
         anzrrows = []
         while rowscntr <= exclrowsused:
             destcell = destshet.cell(row = rowscntr + rowsstrt - 1, column = destcolm)
@@ -176,7 +177,7 @@ def populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnun
                 destcell.number_format = nmbrfrmt
 
             rowscntr += 1
-
+            headcntr += 1
         destcolm += 1
 
     if len(totlcols) > 1:
@@ -197,6 +198,7 @@ def populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnun
     if dlterows:
         for dlterown in dlterows:
             destshet.delete_rows(dlterown,1)
+            headcntr -= 1
 
     # Add up the totals if there are any
     
@@ -343,6 +345,11 @@ def populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnun
     # Merge the cells for the title on the left.
     destshet.merge_cells(start_row=1, start_column=1, end_row=1, end_column=frsttotlcolm - 1)
 
+    # Add the headcount on line 2 Column A
+    headcntrcell = destshet.cell( row = 2, column = 1 ) 
+    headcntrcell.value = 'Total Headcount: ' + str(headcntr)
+    makefontbold(headcntrcell)
+
     # Make all the columns auto sizing
     for cols in destshet.columns:
         col = get_column_letter(cols[0].column)
@@ -485,6 +492,15 @@ def processFiles(defnfilename,exclfilename,cldrmnth,cldryear,busnunitname,debugA
             destshet = exclmainbook.create_sheet(title = defnname)
             destshet.sheet_view.showGridLines = True
             populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnunitname,cldrmnth,cldryear,totlcols,nzrocols,anzrcols,aftrtotldefn)
+            destshet.sheet_view.showGridLines = True
+            #destshet.sheet_view.defaultGridColor = True
+            debug("dir(destshet):                 = ",dir(destshet))
+            debug("destshet.sheet_properties):    = ",destshet.sheet_properties)
+            debug("destshet.sheet_state:          = ",destshet.sheet_state)
+            debug("destshet.sheet_view:           = ",destshet.sheet_view)
+            debug("destshet.sheet_show_gridlines: = ",destshet.show_gridlines)
+            debug("destshet.sheet_view.defaultGridColor: = ",destshet.sheet_view.defaultGridColor)
+
 
         # Save the copy with schedules only at the end.
         exclmainbook.save(newxfilename)
