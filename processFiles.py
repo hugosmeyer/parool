@@ -370,8 +370,7 @@ def processFiles(defnfilename,exclfilename,cldrmnth,cldryear,busnunitname,debugA
     debug("New files created here :", datafilefldr)
 
     # Main, start of the program
-    #try:
-    if 1 == 1:
+    try:
 
         #Assume all files are present
         filepass = True
@@ -447,7 +446,7 @@ def processFiles(defnfilename,exclfilename,cldrmnth,cldryear,busnunitname,debugA
 
                 # Ignore columns that cannot be found in the input sheet.
                 if maincolm not in maincolmhdrs:
-                    if "_NZ_" in thiscolm:
+                    if "_NZ_" in thiscolm or "_ANZ_" in thiscolm:
                         shetslct = False
                         break
                     continue
@@ -472,6 +471,7 @@ def processFiles(defnfilename,exclfilename,cldrmnth,cldryear,busnunitname,debugA
                 thisdefn.append([maincolm, thiscolm])
                 colmcntr += 1
 
+            debug("shetslct:",shetslct)
             if not shetslct:
                 continue
 
@@ -506,10 +506,10 @@ def processFiles(defnfilename,exclfilename,cldrmnth,cldryear,busnunitname,debugA
         exclmainbook.save(newxfilename)
 
 
-    #except Exception as e:
-    #    status = "Failed"
-    #    result = e
-    #else:
+    except Exception as e:
+        status = "Failed"
+        result = e
+    else:
         status = "Success"
         result = ""
 
