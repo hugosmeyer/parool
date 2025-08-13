@@ -429,6 +429,7 @@ def processFiles(defnfilename,exclfilename,cldrmnth,cldryear,busnunitname,debugA
             aftrtotldefn = defaultdict(list)
 
             shetslct = True
+            anzrpres = False
             for maincolm, thiscolm in givndefn:
                 maincolm = maincolm.strip()
                 thiscolm = thiscolm.strip()
@@ -443,7 +444,9 @@ def processFiles(defnfilename,exclfilename,cldrmnth,cldryear,busnunitname,debugA
                                 aftrtotldefn[maincolm].append(destcols[aftrcolm])
                     
 
-
+                
+                if "_ANZ_" in thiscolm:
+                    anzrpres = True
                 # Ignore columns that cannot be found in the input sheet.
                 if maincolm not in maincolmhdrs:
                     if "_NZ_" in thiscolm:
@@ -470,6 +473,10 @@ def processFiles(defnfilename,exclfilename,cldrmnth,cldryear,busnunitname,debugA
                 destcols[maincolm] = colmcntr
                 thisdefn.append([maincolm, thiscolm])
                 colmcntr += 1
+
+            if anzrpres and len(anzrcols) == 0:
+                debug("No ANZ columns found in main sheet")
+                shetslct = False
 
             debug("shetslct:",shetslct)
             if not shetslct:
