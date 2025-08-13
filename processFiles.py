@@ -446,7 +446,7 @@ def processFiles(defnfilename,exclfilename,cldrmnth,cldryear,busnunitname,debugA
 
                 # Ignore columns that cannot be found in the input sheet.
                 if maincolm not in maincolmhdrs:
-                    if "_NZ_" in thiscolm or "_ANZ_" in thiscolm:
+                    if "_NZ_" in thiscolm:
                         shetslct = False
                         break
                     continue
