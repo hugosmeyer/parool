@@ -106,6 +106,7 @@ def frmttotlvalu(cell):
 
 
 def populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnunitname,cldrmnth,cldryear,totlcols,nzrocols,anzrcols,aftrtotldefn):
+    headcntr = 0
     rowsstrt = 5 + len(aftrtotldefn) + 2
     # Gather some details of the Main Excel
     exclrowsused = exclmainshet.max_row
@@ -199,6 +200,11 @@ def populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnun
         for dlterown in dlterows:
             destshet.delete_rows(dlterown,1)
             headcntr -= 1
+
+    # If all the lines were eliminated, the sheet should not be created
+    if headcntr == 0: 
+        return headcntr
+
 
     # Add up the totals if there are any
     
@@ -355,6 +361,7 @@ def populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnun
         col = get_column_letter(cols[0].column)
         destshet.column_dimensions[col].auto_size = True
 
+    return headcntr
     
 def processFiles(defnfilename,exclfilename,cldrmnth,cldryear,busnunitname,debugActive):
     datafilefldr = path.dirname(exclfilename)
@@ -498,7 +505,12 @@ def processFiles(defnfilename,exclfilename,cldrmnth,cldryear,busnunitname,debugA
             # Next create a tab in the copy of the main Excel file
             destshet = exclmainbook.create_sheet(title = defnname)
             destshet.sheet_view.showGridLines = True
-            populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnunitname,cldrmnth,cldryear,totlcols,nzrocols,anzrcols,aftrtotldefn)
+            headcntr = populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnunitname,cldrmnth,cldryear,totlcols,nzrocols,anzrcols,aftrtotldefn)
+            debug("headcntr=",headcntr)
+            # Remove the sheet if the report has a zero headcount
+            if headcntr <= 0:
+                exclmainbook.remove(destshet)
+
             destshet.sheet_view.showGridLines = True
             #destshet.sheet_view.defaultGridColor = True
             debug("dir(destshet):                 = ",dir(destshet))
@@ -508,6 +520,7 @@ def processFiles(defnfilename,exclfilename,cldrmnth,cldryear,busnunitname,debugA
             debug("destshet.sheet_show_gridlines: = ",destshet.show_gridlines)
             debug("destshet.sheet_view.defaultGridColor: = ",destshet.sheet_view.defaultGridColor)
 
+    
 
         # Save the copy with schedules only at the end.
         exclmainbook.save(newxfilename)
