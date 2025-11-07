@@ -1,46 +1,62 @@
 #!/usr/bin/env python3
 import sys
+import os
+from os import path
+import datetime
+import configparser
 import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog
 from tkinter import messagebox
 from PIL import Image, ImageTk
-import datetime
-from copy import copy
-import openpyxl
-from openpyxl import Workbook, load_workbook
-from openpyxl.styles import PatternFill, Border, Side, Alignment, Protection, Font
-from openpyxl.utils import get_column_letter
-import os
-from os import path
-import sys
-import configparser
 from processFiles import processFiles
 
 class Payroll:
+    """Main GUI application for Excel payroll file processing.
+    
+    This class creates a Tkinter-based GUI that allows users to:
+    - Select recipe definition files (INI format)
+    - Choose company, month, and year
+    - Select payroll Excel files
+    - Process files to generate formatted output sheets
+    """
 
     def __init__(self, root):
+        """Initialize the Payroll GUI application.
+        
+        Args:
+            root: The Tkinter root window
+        """
         self.root = root
         self.root.title("Excel File Processor")
         self.root.geometry("800x600")
         
         self.root.resizable(False, False)
 
-        if hasattr(sys, '_MEIPASS'):
-            img_path = os.path.join(sys._MEIPASS, "background.png")
-        else:
-            img_path = os.path.abspath("background.png")
+        # Load background image with error handling
+        try:
+            if hasattr(sys, '_MEIPASS'):
+                img_path = os.path.join(sys._MEIPASS, "background.png")
+            else:
+                img_path = os.path.abspath("background.png")
 
-        bg_image = Image.open(img_path)
-        bg_image = bg_image.resize((800, 600) )
-        self.bg_photo = ImageTk.PhotoImage(bg_image)
+            bg_image = Image.open(img_path)
+            bg_image = bg_image.resize((800, 600))
+            self.bg_photo = ImageTk.PhotoImage(bg_image)
+        except FileNotFoundError:
+            print(f"Warning: Background image not found at {img_path}")
+            self.bg_photo = None
+        except Exception as e:
+            print(f"Warning: Could not load background image: {e}")
+            self.bg_photo = None
 
         #
         # Create a canvas to display the background image
         #
         canvas = tk.Canvas(root, width=800, height=600)
         canvas.pack()
-        canvas.create_image(0, 0, anchor=tk.NW, image=self.bg_photo)
+        if self.bg_photo:
+            canvas.create_image(0, 0, anchor=tk.NW, image=self.bg_photo)
 
         self.dropdownwdth = 100
         self.filenamewdth = 400
@@ -75,7 +91,7 @@ class Payroll:
 
         self.compnamevalu = tk.StringVar()
         self.compdropdown = ttk.Combobox(root, textvariable=self.compnamevalu, values=[])
-        self.compdropdown.state = "disabled"
+        self.compdropdown.configure(state="disabled")
         canvas.create_window(self.valuxpos, self.ypos, window=self.compdropdown, width=self.dropdownwdth, anchor="nw")
      
         self.ypos += self.yposincr
@@ -136,43 +152,85 @@ class Payroll:
 
     
     def rcpeflnmslct(self):
-            flnmslct = filedialog.askopenfilename(title="Select Recipe File", filetypes=[("INI files", "*.ini"), ("All files", "*.*")])
-            if flnmslct:
-                self.rcpeflnmvalu.set(flnmslct)
+        """Handle recipe file selection and populate company dropdown.
+        
+        Opens a file dialog to select an INI file, parses it, and extracts
+        the list of companies to populate the company dropdown.
+        """
+        flnmslct = filedialog.askopenfilename(
+            title="Select Recipe File", 
+            filetypes=[("INI files", "*.ini"), ("All files", "*.*")]
+        )
+        if flnmslct:
+            self.rcpeflnmvalu.set(flnmslct)
             
-                #print("rcpeflnmvalu = ", self.rcpeflnmvalu)
-                # Parse INI file
+            # Parse INI file
+            config = configparser.ConfigParser(delimiters=('='))
+            config.read(flnmslct)
 
-                config = configparser.ConfigParser(delimiters=('='))
-                config.read(flnmslct)
-
-                self.complist = []
-                if "COMPANIES" in config:
-                    for compkeyn in config["COMPANIES"].keys():
-                        #self.complist.append (compkeyn + " - " + config["COMPANIES"].get(compkeyn) )
-                        self.complist.append (config["COMPANIES"].get(compkeyn) )
-                    self.compdropdown.config(values = self.complist)
+            self.complist = []
+            if "COMPANIES" in config:
+                for compkeyn in config["COMPANIES"].keys():
+                    self.complist.append(config["COMPANIES"].get(compkeyn))
+                self.compdropdown.config(values=self.complist)
+                self.compdropdown.configure(state="readonly")
                     
     def prolflnmslct(self):
-        file_path = filedialog.askopenfilename(title="Select Payroll Excel File", filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")] )
-        self.prolflnmvalu.set(file_path)
+        """Handle payroll Excel file selection.
+        
+        Opens a file dialog to select an Excel (.xlsx) file.
+        """
+        file_path = filedialog.askopenfilename(
+            title="Select Payroll Excel File", 
+            filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")]
+        )
+        if file_path:
+            self.prolflnmvalu.set(file_path)
 
 
     def yearvalulist(self):
+        """Generate a list of years (previous, current, next).
+        
+        Returns:
+            list: List of year strings [previous year, current year, next year]
+        """
         current_year = datetime.datetime.now().year
-        return[str(current_year - 1), str(current_year), str(current_year + 1)]
+        return [str(current_year - 1), str(current_year), str(current_year + 1)]
     
     
     def process_data(self):
+        """Process the selected files and generate output sheets."""
+        # Validate inputs
         defnfilename = self.rcpeflnmvalu.get()
         compname     = self.compnamevalu.get()
         cldrmnth     = self.mnthnamevalu.get()
         cldryear     = self.yearnamevalu.get()
         exclfilename = self.prolflnmvalu.get()
+        
+        # Validate all required fields are filled
+        if not defnfilename:
+            messagebox.showerror("Error", "Please select a Recipe file")
+            return
+        if not compname:
+            messagebox.showerror("Error", "Please select a Company")
+            return
+        if not cldrmnth:
+            messagebox.showerror("Error", "Please select a Month")
+            return
+        if not cldryear:
+            messagebox.showerror("Error", "Please select a Year")
+            return
+        if not exclfilename:
+            messagebox.showerror("Error", "Please select a Payroll file")
+            return
     
-        result = processFiles(defnfilename,exclfilename,cldrmnth,cldryear,compname,False)
-
-        messagebox.showinfo("Done",result)
+        # Process files and handle result
+        status, result = processFiles(defnfilename, exclfilename, cldrmnth, cldryear, compname, False)
+        
+        if status == "Failed":
+            messagebox.showerror("Error", f"Processing failed: {result}")
+        else:
+            messagebox.showinfo("Success", "Processing completed successfully!")
 
 if __name__ == "__main__":
     root = tk.Tk()

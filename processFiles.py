@@ -1,38 +1,48 @@
 #!/usr/bin/env python3
-import sys
-import tkinter as tk
-from tkinter import ttk
-from tkinter import filedialog
-import datetime
-from copy import copy, deepcopy
-import openpyxl
-from openpyxl import Workbook, load_workbook
-from openpyxl.styles import PatternFill, Border, Side, Alignment, Protection, Font
-from openpyxl.utils import get_column_letter
 import os
 from os import path
-import sys
+from copy import copy
 from collections import defaultdict
-from openpyxl.styles import Alignment
-import re
+from openpyxl import load_workbook
+from openpyxl.styles import PatternFill, Border, Side, Alignment, Font
+from openpyxl.utils import get_column_letter
+import logging
 
-debugActive = True
-
-def debug(*args):
-    if debugActive:
-        print(*args)
-# Check if a file exists
-
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 def check_file(filename):
+    """Check if a file exists and is readable.
+    
+    Args:
+        filename: Path to the file to check
+        
+    Returns:
+        tuple: (bool, str) - (True, "") if file exists, (False, error_message) otherwise
+    """
     try:
-        filehndl = open(filename,"r")
+        with open(filename, "r") as filehndl:
+            pass
     except IOError:
-        return False, "Unable to open type file: " + filename
+        return False, f"Unable to open file: {filename}"
     else:
-        filehndl.close()
         return True, ""
 
+
 def defnfileprse(file_path):
+    """Parse an INI-style definition file.
+    
+    Parses a file with [SECTIONS] and key=value pairs into a dictionary structure.
+    
+    Args:
+        file_path: Path to the INI file
+        
+    Returns:
+        dict: Dictionary with section names as keys and lists of [key, value] pairs as values
+    """
     ini_data = dict()
 
     with open(file_path, 'r') as file:
@@ -44,68 +54,116 @@ def defnfileprse(file_path):
                 ini_data[currsect] = list()
             elif '=' in line:
                 key, value = map(str.strip, line.split('=', 1))
-                if not key == "":
-                    if key is None:
-                        key = ""
-                    key = key.strip() 
-                    value = value.strip()
+                if key:  # Simplified - empty string is falsy
                     ini_data[currsect].append([key, value])
     return ini_data
 
 
 # Define the underline formats for Total headers and values
-defnbrdrthin = Side(border_style="thin",  color="000000")
-defnbrdrthck = Side(border_style="thick", color="000000")
-cellbrdrthin = Border(bottom=defnbrdrthin)
-cellbrdrthck = Border(bottom=defnbrdrthck)
-nmbrfrmt="### ### ### ##0.00"
+BORDER_THIN = Side(border_style="thin", color="000000")
+BORDER_THICK = Side(border_style="thick", color="000000")
+CELL_BORDER_THIN = Border(bottom=BORDER_THIN)
+CELL_BORDER_THICK = Border(bottom=BORDER_THICK)
+NUMBER_FORMAT = "### ### ### ##0.00"
 
-def copycellvalu(fromcell, destcell):
-    destcell.value = fromcell.value
-
-def copycellfrmt(fromcell, destcell):
-    destcell.font          = copy(fromcell.font)
-    destcell.border        = copy(fromcell.border)
-    destcell.fill          = copy(fromcell.fill)
-    #destcell.number_format = copy(fromcell.number_format)
-    destcell.number_format = nmbrfrmt
-    destcell.protection    = copy(fromcell.protection)
-    destcell.alignment     = copy(fromcell.alignment)
 
 def makefontbold(cell):
+    """Make a cell's font bold.
+    
+    Args:
+        cell: The Excel cell to modify
+    """
     thisfont = copy(cell.font)
     thisfont.bold = True
     cell.font = thisfont
 
+
 def fontsizenrml(cell):
-    cell.font       = Font(name='Arial',size=10,bold=None,italic=False,vertAlign=None,underline=None,strike=False,color='FF000000')
+    """Set cell font to normal size (10pt Arial).
+    
+    Args:
+        cell: The Excel cell to modify
+    """
+    cell.font = Font(
+        name='Arial', size=10, bold=None, italic=False,
+        vertAlign=None, underline=None, strike=False, color='FF000000'
+    )
+
 
 def fontsizelrge(cell):
-    cell.font       = Font(name='Arial',size=14,bold=None,italic=False,vertAlign=None,underline=None,strike=False,color='FF000000')
+    """Set cell font to large size (14pt Arial).
+    
+    Args:
+        cell: The Excel cell to modify
+    """
+    cell.font = Font(
+        name='Arial', size=14, bold=None, italic=False,
+        vertAlign=None, underline=None, strike=False, color='FF000000'
+    )
 
-def maketextcntr(cell):
-    cell.alignment = Alignment(horizontal='general',vertical='center',text_rotation=0,wrap_text=True,shrink_to_fit=False,indent=0)
 
 def fillcellcolr(cell):
-    cell.fill = PatternFill(fill_type="lightGray",start_color='DAE3F3',end_color='DAE3F3')
+    """Fill cell with light blue background color.
+    
+    Args:
+        cell: The Excel cell to modify
+    """
+    cell.fill = PatternFill(
+        fill_type="lightGray", start_color='DAE3F3', end_color='DAE3F3'
+    )
+
 
 def frmttotltitl(cell):
+    """Format a cell as a total title (bold, colored, bottom-aligned).
+    
+    Args:
+        cell: The Excel cell to modify
+    """
     fontsizenrml(cell)
     makefontbold(cell)
     fillcellcolr(cell)
-    cell.alignment = Alignment(horizontal='general',vertical='bottom',text_rotation=0,wrap_text=True,shrink_to_fit=False,indent=0)
+    cell.alignment = Alignment(
+        horizontal='general', vertical='bottom', text_rotation=0,
+        wrap_text=True, shrink_to_fit=False, indent=0
+    )
+
 
 def frmttotlvalu(cell):
-    #fontsizelrge(cell)
+    """Format a cell as a total value (bold, thick border, number format).
+    
+    Args:
+        cell: The Excel cell to modify
+    """
     fontsizenrml(cell)
     makefontbold(cell)
-    cell.border        = cellbrdrthck
-    cell.number_format = nmbrfrmt
-    cellabov           = cell.parent.cell(row=cell.row - 1, column=cell.column)
-    cellabov.border    = cellbrdrthin 
+    cell.border = CELL_BORDER_THICK
+    cell.number_format = NUMBER_FORMAT
+    cellabov = cell.parent.cell(row=cell.row - 1, column=cell.column)
+    cellabov.border = CELL_BORDER_THIN 
 
 
-def populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnunitname,cldrmnth,cldryear,totlcols,nzrocols,anzrcols,aftrtotldefn):
+def populateTheSheet(exclmainshet, maincolmhdrs, destshet, thisdefn, defnname, 
+                     busnunitname, cldrmnth, cldryear, totlcols, nzrocols, 
+                     anzrcols, aftrtotldefn):
+    """Populate a worksheet with formatted data from the main Excel sheet.
+    
+    Args:
+        exclmainshet: Source Excel worksheet
+        maincolmhdrs: Dictionary mapping column names to column indices
+        destshet: Destination worksheet to populate
+        thisdefn: List of [source_column, dest_column] mappings
+        defnname: Name of this definition/report
+        busnunitname: Business unit name
+        cldrmnth: Calendar month
+        cldryear: Calendar year
+        totlcols: List of column indices to total
+        nzrocols: List of column indices that must be non-zero
+        anzrcols: List of column indices for any-non-zero check
+        aftrtotldefn: Dictionary of additional totals to add after main totals
+        
+    Returns:
+        int: Number of data rows (headcount) in the populated sheet
+    """
     headcntr = 0
     rowsstrt = 5 + len(aftrtotldefn) + 2
     # Gather some details of the Main Excel
@@ -146,24 +204,23 @@ def populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnun
             destshet.row_dimensions[rowscntr].height = None
             fromcell=exclmainshet.cell(row = rowscntr, column = maincolmhdrs[maincolm])
             destcell.value = fromcell.value 
-           
-            #if fromcell.has_style:
-            #    copycellfrmt(fromcell, destcell)
             fontsizenrml(destcell)
 
-            anzrsums[destcell.row] = anzrsums[destcell.row] + 0
+            # Initialize row sum if needed
+            if destcell.row not in anzrsums:
+                anzrsums[destcell.row] = 0
+                
             if destcolm in nzrocols or destcolm in anzrcols:
                 if isinstance(destcell.value, (int, float)) and not isinstance(destcell.value, bool):
                     if destcolm in anzrcols:
-                        anzrsums[destcell.row] = anzrsums[destcell.row] + abs(destcell.value)
+                        anzrsums[destcell.row] += abs(destcell.value)
                     if destcolm in nzrocols:
                         if abs(destcell.value) < 1e-12:
                             if destcell.row not in dlterows:
                                 dlterows.append(destcell.row)
                 elif isinstance(destcell.value, str):
-
                     if destcolm in nzrocols:
-                        if destcell.value.strip()  == "":
+                        if destcell.value.strip() == "":
                             if destcell.row not in dlterows:
                                 dlterows.append(destcell.row)
                 elif destcell.value is None:
@@ -175,7 +232,7 @@ def populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnun
             if destcolm in totlcols:
                 if destcell.value is None:
                     destcell.value = 0.00
-                destcell.number_format = nmbrfrmt
+                destcell.number_format = NUMBER_FORMAT
 
             rowscntr += 1
             headcntr += 1
@@ -271,7 +328,7 @@ def populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnun
             fontsizenrml(thiscell)
             makefontbold(thiscell)
             thiscell.value = "=SUM(" + ",".join(sidetotlcels) + ")"
-            thiscell.number_format = nmbrfrmt
+            thiscell.number_format = NUMBER_FORMAT
             sidetotllist.append(thiscell.coordinate)
             rowscntr += 1
         
@@ -330,7 +387,7 @@ def populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnun
             aftrvalucell.value = "=SUM(" + ",".join(aftrsnglcels) + ")"
             fontsizenrml(aftrvalucell)
             makefontbold(aftrvalucell)
-            aftrvalucell.number_format = nmbrfrmt
+            aftrvalucell.number_format = NUMBER_FORMAT
 
             aftrtotlrown = aftrtotlrown + 1
             
@@ -344,7 +401,7 @@ def populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnun
         fontsizenrml(aftrtotlvalu)
         makefontbold(aftrtotlvalu)
         aftrtotlvalu.value = "=SUM(" + ",".join(aftrtotlcels) + ")"
-        aftrtotlvalu.number_format = nmbrfrmt
+        aftrtotlvalu.number_format = NUMBER_FORMAT
         frmttotlvalu(aftrtotlvalu)
 
             
@@ -363,18 +420,37 @@ def populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnun
 
     return headcntr
     
-def processFiles(defnfilename,exclfilename,cldrmnth,cldryear,busnunitname,debugActive):
+
+def processFiles(defnfilename, exclfilename, cldrmnth, cldryear, busnunitname, debug_enabled):
+    """Process Excel payroll files according to definition file specifications.
+    
+    Reads a definition INI file and an Excel payroll file, then creates formatted
+    output sheets based on the definitions. Each section in the INI file generates
+    a separate worksheet with filtered and formatted data.
+    
+    Args:
+        defnfilename: Path to the INI definition file
+        exclfilename: Path to the Excel payroll file
+        cldrmnth: Calendar month (e.g., "Jan", "Feb")
+        cldryear: Calendar year (e.g., "2025")
+        busnunitname: Business unit name
+        debug_enabled: Whether to enable debug logging (currently unused, uses logging level)
+        
+    Returns:
+        tuple: (status, result) where status is "Success" or "Failed" and result is 
+               empty string on success or error message on failure
+    """
     datafilefldr = path.dirname(exclfilename)
     newxfilename = path.join(datafilefldr, str(path.basename(exclfilename.replace(".xlsx", " Tabs.xlsx"))))
 
-    debug("Running in folder      :", os.getcwd())
-    debug("Selected Month         :", cldrmnth)
-    debug("Selected Year          :", cldryear)
-    debug("Data Folder            :", datafilefldr)
-    debug("Definition file(ini)   :", defnfilename)
-    debug("Excel Source file      :", os.path.basename(exclfilename))   
-    debug("New Main Excel file    :", os.path.basename(newxfilename))
-    debug("New files created here :", datafilefldr)
+    logger.info("Running in folder: %s", os.getcwd())
+    logger.info("Selected Month: %s", cldrmnth)
+    logger.info("Selected Year: %s", cldryear)
+    logger.info("Data Folder: %s", datafilefldr)
+    logger.info("Definition file (ini): %s", defnfilename)
+    logger.info("Excel Source file: %s", os.path.basename(exclfilename))
+    logger.info("New Main Excel file: %s", os.path.basename(newxfilename))
+    logger.info("New files created here: %s", datafilefldr)
 
     # Main, start of the program
     try:
@@ -482,43 +558,27 @@ def processFiles(defnfilename,exclfilename,cldrmnth,cldryear,busnunitname,debugA
                 colmcntr += 1
 
             if anzrpres and len(anzrcols) == 0:
-                debug("No ANZ columns found in main sheet")
+                logger.warning("No ANZ columns found in main sheet for %s", defnname)
                 shetslct = False
 
-            debug("shetslct:",shetslct)
+            logger.debug("Sheet selected: %s for %s", shetslct, defnname)
             if not shetslct:
                 continue
 
-            
-
-
-
-
-            # First create a sheet for a new file in which to work
-            #destbook = Workbook()
-            #destshet = destbook.active
-            #destshet.show_gridlines = True
-            #destshet.title = defnname          
-            #populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnunitname,cldrmnth,cldryear,totlcols,nzrocols,anzrcols,aftrtotldefn)
-            #destbook.save(filename=os.path.join(datafilefldr, busnunitname + " " + defnname + " " + str(cldrmnth) + " " + str(cldryear) + ".xlsx"))
-
-            # Next create a tab in the copy of the main Excel file
-            destshet = exclmainbook.create_sheet(title = defnname)
+            # Create a tab in the copy of the main Excel file
+            destshet = exclmainbook.create_sheet(title=defnname)
             destshet.sheet_view.showGridLines = True
-            headcntr = populateTheSheet(exclmainshet,maincolmhdrs,destshet,thisdefn,defnname,busnunitname,cldrmnth,cldryear,totlcols,nzrocols,anzrcols,aftrtotldefn)
-            debug("headcntr=",headcntr)
+            headcntr = populateTheSheet(
+                exclmainshet, maincolmhdrs, destshet, thisdefn, defnname,
+                busnunitname, cldrmnth, cldryear, totlcols, nzrocols, 
+                anzrcols, aftrtotldefn
+            )
+            logger.info("Sheet '%s' created with headcount: %d", defnname, headcntr)
+            
             # Remove the sheet if the report has a zero headcount
             if headcntr <= 0:
                 exclmainbook.remove(destshet)
-
-            destshet.sheet_view.showGridLines = True
-            #destshet.sheet_view.defaultGridColor = True
-            debug("dir(destshet):                 = ",dir(destshet))
-            debug("destshet.sheet_properties):    = ",destshet.sheet_properties)
-            debug("destshet.sheet_state:          = ",destshet.sheet_state)
-            debug("destshet.sheet_view:           = ",destshet.sheet_view)
-            debug("destshet.sheet_show_gridlines: = ",destshet.show_gridlines)
-            debug("destshet.sheet_view.defaultGridColor: = ",destshet.sheet_view.defaultGridColor)
+                logger.info("Sheet '%s' removed due to zero headcount", defnname)
 
     
 
